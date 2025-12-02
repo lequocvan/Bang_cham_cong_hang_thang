@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Bảng chấm Công, Lương, Phép, Ăn ca [Người lao động]</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f8f9fa; }
+        .container { max-width: 1200px; margin: auto; background: #ffffff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); }
+        h1 { 
+            color: #0056b3; 
+            border-bottom: 3px solid #007bff; 
+            padding-bottom: 10px; 
+            /* THÊM: Dùng Flexbox để căn chỉnh nội dung trên cùng 1 dòng */
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+        } 
+        /* Đảm bảo tiêu đề chính không bị co lại quá mức */
+        h1 span:first-child { 
+            flex-grow: 1; 
+        }
+        h2 { margin-top: 25px; color: #333; }
+
+        /* Phân chia bố cục */
+        .system-tabs { display: flex; margin-bottom: 20px; }
+        .tab-button { padding: 10px 15px; background-color: #eee; border: 1px solid #ccc; border-bottom: none; cursor: pointer; border-radius: 6px 6px 0 0; margin-right: 5px; }
+        .tab-button.active { background-color: #fff; border-color: #007bff; border-bottom: 1px solid #fff; font-weight: bold; color: #007bff; }
+        .tab-content { border: 1px solid #007bff; padding: 20px; border-radius: 0 8px 8px 8px; min-height: 400px; }
+        .tab-page { display: none; }
+        .tab-page.active { display: block; }
+
+        /* Style chung cho nút và input */
+        button { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px; }
+        .input-section label, .input-section input, .input-section select { margin-right: 10px; }
+        .input-section input[type="number"] { padding: 5px; width: 80px; }
+
+        /* Chức năng Quản trị (Admin) */
+        #login-screen { text-align: center; padding: 50px; border: 1px solid #ccc; border-radius: 8px; margin-top: 50px; }
+        #admin-panel { display: none; }
+        .data-table table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .data-table th, .data-table td { border: 1px solid #ccc; padding: 8px; text-align: center; font-size: 0.85em; }
+        .data-table th { background-color: #f0f0f0; }
+        .data-table td:nth-child(2) { text-align: left; }
+        .btn-edit { background-color: #ffc107; color: #333; }
+        .btn-delete { background-color: #dc3545; color: white; }
+        .btn-save { background-color: #28a745; color: white; }
+        .btn-cancel { background-color: #6c757d; color: white; }
+        #add-edit-form { margin-top: 20px; padding: 15px; border: 1px solid #007bff; border-radius: 8px; background-color: #e9f7ff; }
+        #add-edit-form input { padding: 8px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; width: 140px; }
+        .error { color: red; margin-top: 10px; }
+
+        /* Chức năng Tính toán (Report) */
+        .nhan-vien-card { border: 1px solid #d1e7dd; padding: 15px; margin-bottom: 10px; border-radius: 8px; background-color: #f0fdf4; }
+        .history-table table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .history-table th, .history-table td { border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 0.9em; }
+        .history-table th { background-color: #f0f0f0; }
+
+        /* SỬA ĐỔI CHO CHỨC NĂNG CHẤM CÔNG (TIMESHEET) */
+        .timesheet-table { 
+            width: auto; 
+            border-collapse: collapse; 
+            margin-top: 10px; 
+            font-size: 0.85em; 
+            table-layout: auto; 
+            min-width: 100%; 
+        }
+        /* Đảm bảo viền bảng hiển thị rõ */
+        .timesheet-table th, .timesheet-table td { border: 1px solid #000; padding: 5px; text-align: center; height: 30px; }
+        /* CHO PHÉP NGẮT DÒNG CHO TIÊU ĐỀ CỘT */
+        .timesheet-table th {
+            white-space: normal !important; /* Quan trọng: Cho phép ngắt dòng */
+            vertical-align: middle; /* Căn giữa khi ngắt dòng */
+        }
+        /* Cập nhật style cho ô input chấm công */
+        .timesheet-table td .timesheet-input {
+            width: 100%; 
+            height: 100%;
+            padding: 0;
+            margin: 0;
+            border: none;
+            text-align: center;
+            box-sizing: border-box;
+            background-color: transparent;
+            font-size: 1.1em; /* Giữ kích thước chữ */
+            font-weight: bold;
+        }
+        /* HẠN CHẾ NGẮT DÒNG CHO NỘI DUNG CELL (bao quanh input)*/
+        .timesheet-table td {
+            white-space: nowrap; /* Giữ nội dung cell trên một dòng */
+            padding: 0; /* Bỏ padding trên td để input chiếm trọn */
+        }
+        .timesheet-table tbody td { min-width: 30px; }
+        .timesheet-table .total-column { background-color: #d4edda; font-weight: bold; }
+        /* CSS cho cột Ngày lương và Ăn ca */
+        .timesheet-table .salary-day-column { background-color: #e6ffec; font-weight: bold; }
+        .timesheet-table .meal-column { background-color: #fff3e6; }
+
+        .timesheet-table .weekend-header { background-color: #fce4ec; color: #dc3545; }
+        .timesheet-table .weekend-cell { background-color: #fce4ec; color: #dc3545; }
+        .convention-box { margin-top: 15px; padding: 10px; border: 1px solid #0056b3; border-radius: 5px; background-color: #e9f7ff; font-size: 0.9em; }
+        .convention-box strong { color: #0056b3; }
+        .convention-box ul { list-style: none; padding: 0; margin-left: 10px; column-count: 2; column-gap: 20px; }
+        .convention-box li { margin-bottom: 3px; }
+
+
+        /* CSS dành cho In ấn */
+        @media print {
+            /* Ẩn tất cả các thành phần không liên quan */
+            .system-tabs, 
+            .input-section, 
+            #admin-panel, 
+            #login-screen, 
+            button, 
+            p:not(.print-visible), 
+            .convention-box:not(.print-visible),
+            h1, 
+            #report-page, #admin-page { display: none !important; }
+
+            /* Hiện các thành phần cần in */
+            #timesheet-page { display: block !important; } 
+            .container { box-shadow: none; max-width: none; width: 100%; margin: 0; padding: 0; }
+            
+            #timesheet-page h2 { display: block !important; margin-top: 0; padding-top: 10px; text-align: center; } 
+            
+            /* Bỏ cuộn ngang khi in và đảm bảo in đủ nội dung */
+            .scrollable-timesheet-wrapper { 
+                overflow-x: visible !important; 
+                border: none !important; 
+            }
+
+            .timesheet-table { 
+                font-size: 8pt; /* Giảm font size để chứa nhiều cột hơn */
+                border-collapse: collapse; 
+                width: 100% !important; /* Buộc bảng chiếm 100% chiều rộng giấy in */
+                table-layout: fixed; /* Bật fixed layout để kiểm soát chiều rộng cột */
+            }
+            /* Viền màu đen khi in & giảm padding */
+            .timesheet-table th, .timesheet-table td { 
+                border: 1px solid #000 !important; 
+                padding: 1px 2px; /* Giảm padding tối đa */
+                height: auto;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            /* Đảm bảo chỉ in giá trị của input, không in viền input */
+            .timesheet-table td .timesheet-input {
+                 border: none !important;
+                 background-color: transparent !important;
+                 font-size: 8pt;
+            }
+            
+            /* Cố định chiều rộng cột STT, Họ Tên để nhường không gian cho các ngày trong tháng */
+            .timesheet-table th:nth-child(1), .timesheet-table td:nth-child(1) { width: 15px !important; } /* STT */
+            .timesheet-table th:nth-child(2), .timesheet-table td:nth-child(2) { 
+                width: 150px !important; /* Tăng từ 100px lên 150px */
+                text-align: left; 
+                white-space: normal !important; /* QUAN TRỌNG: Cho phép ngắt dòng */
+            }
+            
+            .timesheet-table th:nth-last-child(3), .timesheet-table td:nth-last-child(3) { width: 45px !important; } /* Tổng ngày công */
+            .timesheet-table th:nth-last-child(2), .timesheet-table td:nth-last-child(2) { width: 35px !important; } /* Ngày lương */
+            .timesheet-table th:last-child, .timesheet-table td:last-child { width: 35px !important; } /* Ăn ca */
+
+            /* Các cột ngày (từ 3 đến 33 hoặc 34) sẽ tự động chia đều phần không gian còn lại */
+            
+            /* Thêm quy tắc để đảm bảo bảng header/footer hiển thị đúng trong chế độ in */
+            .timesheet-header-for-export, .timesheet-footer-for-export { 
+                display: table !important; 
+                margin: 0 auto; 
+            }
+            .timesheet-header-for-export td, .timesheet-footer-for-export td {
+                /* Gỡ bỏ border khi in */
+                border: none !important; 
+            }
+        }
+
+        /* Bổ sung CSS cho phần Chữ ký (giữ lại cấu trúc cơ bản cho Print/Export) */
+        .signature-footer {
+            margin-top: 40px;
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .signature-footer td {
+            vertical-align: top;
+            padding: 0;
+            border: none;
+        }
+
+        .filter-section {
+            /* Các thuộc tính định dạng cũ: */
+            border: 1px solid #ccc; 
+            padding: 10px; 
+            border-radius: 8px; 
+            margin-bottom: 15px; 
+            background-color: #f7fffb;
+
+            /* THÊM THUỘC TÍNH FLEXBOX ĐỂ SẮP XẾP GỌN GÀNG */
+            display: flex; /* Bật Flexbox */
+            flex-wrap: wrap; /* Cho phép các mục tự động xuống hàng */
+            align-items: center; /* Căn giữa theo chiều dọc */
+            gap: 10px; /* Tạo khoảng cách 10px giữa các phần tử */
+        }
+
+        /* Đảm bảo không có margin không mong muốn xung quanh các phần tử trong filter-section */
+        .filter-section label,
+        .filter-section input,
+        .filter-section button {
+            margin: 0; 
+        }
+
+        #timesheetTable {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 11pt; /* Hoặc 0.9em, 11px tùy vào cách bạn muốn hiển thị */
+        }
+
+        /* Áp dụng thêm cho các ô trong bảng để đảm bảo */
+        #timesheetTable th, #timesheetTable td {
+            font-family: "Times New Roman", Times, serif;
+            font-size: 11pt;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>
+            <span>📊 Site Công, Lương, Phép, Ăn ca [Người lao động]</span>
+            <span id="current-time" style="font-size: 0.8em; font-weight: normal; color: #dc3545; margin-left: 20px;"></span>
+        </h1>
+        
+        <div class="system-tabs">
+            <button class="tab-button active" onclick="openTab('timesheet-page', this)">📅 Bảng Chấm Công</button>
+            <button class="tab-button" onclick="openTab('report-page', this)">Báo Cáo Tính Toán Ngày Phép</button>
+            <button class="tab-button" onclick="openTab('admin-page', this)">Quản Lý Dữ Liệu Nhân Sự (chưa cook trên local)</button>
+        </div>
+
+        <div class="tab-content">
+            <div id="timesheet-page" class="tab-page active">
+                <div class="input-section" style="border: 1px solid #ccc; padding: 10px; border-radius: 8px; background-color: #f7fffb;">
+                    <label for="timesheetMonth">Chọn Tháng:</label>
+                    <select id="timesheetMonth" style="padding: 5px; margin-right: 10px;"></select>
+                    <label for="timesheetYear">Chọn Năm:</label>
+                    <input type="number" id="timesheetYear" value="2025" min="2000" max="2050" style="padding: 5px; width: 80px; margin-right: 15px;">
+                    <button onclick="renderTimesheetUI()" style="background-color: #087f5b; color: white;">Xem Bảng Chấm Công</button>
+                    <button onclick="exportTimesheetToExcel()" style="background-color: #28a745; color: white;">⬇️ Xuất Excel (.xls)</button>
+                    <button onclick="window.print()" style="background-color: #6c757d; color: white;">🖨️ In Bảng (Ẩn thanh điều khiển)</button>
+                </div>
+                
+                <div id="timesheet-results">
+                    <p>Chọn tháng và năm để tạo bảng chấm công.</p>
+                </div>
+            </div>
+
+            <div id="report-page" class="tab-page">
+                <h2>📈 Báo Cáo Tự Động</h2>
+
+                <div class="filter-section">
+                    <label for="filterHoTen">Lọc theo Họ Tên:</label>
+                    <input type="text" id="filterHoTen" placeholder="Nhập Họ Tên" style="padding: 5px; width: 200px;">
+                    
+                    <label for="filterMaCB">Lọc theo Mã CB:</label>
+                    <input type="text" id="filterMaCB" placeholder="Nhập Mã CB" style="padding: 5px; width: 150px;">
+                    
+                    <button onclick="loadAndProcessData()" style="background-color: #007bff; color: white; padding: 6px 12px; border: none; border-radius: 4px;">🔎 Lọc & Cập Nhật Báo Cáo</button>
+                </div>
+
+                <p style="color: #007bff; font-weight: bold;">Sử dụng nút Lọc & Cập Nhật để xem kết quả.</p>
+                
+                <p>Dữ liệu tính toán được lấy từ danh sách **Người Lao Động** (ở tab Quản Lý) và **Lịch Sử Nghỉ Phép** (đã hardcode).</p>
+                <p style="color: #007bff; font-weight: bold;">Sau khi chỉnh sửa thông tin nhân sự ở tab Quản Lý dữ liệu nhân sự, hãy nhấn nút dưới đây để cập nhật báo cáo.</p>
+
+                <div id="report-scroll-wrapper" style="max-height: 500px; overflow-y: auto; padding-right: 15px;">
+                    <div id="leave-history-enriched" class="history-table">
+                        <h2>🗓️ Lịch sử Nghỉ Phép Chi tiết</h2>
+                    </div>
+                    
+                    <div id="results">
+                        <h2>📈 Báo Cáo Ngày Nghỉ Phép Năm</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div id="admin-page" class="tab-page">
+                <div id="login-screen">
+                    <h2>Đăng nhập Hệ thống Quản trị</h2>
+                    <input type="password" id="passwordInput" placeholder="Nhập Mật khẩu">
+                    <button onclick="login()">Đăng nhập</button>
+                    <p id="loginMessage" class="error"></p>
+                    <p style="margin-top: 10px; font-size: 0.9em;">Mật khẩu mẫu: <strong>admin123</strong></p>
+                </div>
+
+                <div id="admin-panel" style="display:none;">
+                    <h2>👨‍💼 Quản Lý Danh Sách Người Lao Động</h2>
+                    <button onclick="showAddForm()" style="background-color: #007bff; color: white;">➕ Thêm Mới</button>
+                    <button onclick="exportData()" style="background-color: #6c757d; color: white;">⬇️ Xuất CSV</button>
+
+                    <div id="add-edit-form" style="display:none;">
+                        <h3><span id="form-title">Thêm</span> Thông tin Nhân viên</h3>
+                        <input type="hidden" id="edit-index">
+                        <input type="text" id="Ma_CB" placeholder="Mã CB" required>
+                        <input type="text" id="Ho_Ten" placeholder="Họ Tên" required>
+                        <input type="text" id="Gioi_Tinh" placeholder="Giới Tính (Nam/Nữ)" required>
+                        <input type="text" id="Ngay_Sinh" placeholder="Ngày Sinh (dd/MM/yyyy)" required title="Nhập định dạng ngày dd/MM/yyyy">
+                        <input type="text" id="Ngay_BD_CT" placeholder="Ngày BĐ CT (dd/MM/yyyy)" required title="Nhập định dạng ngày dd/MM/yyyy">
+                        <input type="text" id="Noi_Cong_Tac" placeholder="Nơi Công Tác" required>
+                        <br>
+                        <button onclick="saveEmployee()" class="btn-save">Lưu</button>
+                        <button onclick="hideForm()" class="btn-cancel">Hủy</button>
+                        <p class="error" id="form-message"></p>
+                    </div>
+
+                    <div class="data-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Mã CB</th>
+                                    <th>Họ Tên</th>
+                                    <th>Giới Tính</th>
+                                    <th>Ngày Sinh (dd/MM/yyyy)</th>
+                                    <th>Ngày BĐ CT (dd/MM/yyyy)</th>
+                                    <th>Nơi Công Tác</th>
+                                    <th>Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeeTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <p style="margin-top: 20px; color: #888; font-size: 0.9em;">*Ngày Sinh và Ngày BĐ CT trong bảng được hiển thị dưới dạng **dd/MM/yyyy**.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // THAY ĐỔI: Thêm mảng tên ngày trong tuần tiếng Việt
+        const dayNames = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+
+        function updateClock() {
+            const now = new Date();
+            
+            // Lấy Ngày trong tuần
+            const dayOfWeek = dayNames[now.getDay()];
+            
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+
+            // Cập nhật chuỗi hiển thị
+            const timeString = `${hours}:${minutes}:${seconds}`;
+            const dateString = `${day}/${month}/${year}`;
+            
+            const clockElement = document.getElementById('current-time');
+            if (clockElement) {
+                // HIỂN THỊ: Ngày trong tuần, Giờ:Phút:Giây, Ngày/Tháng/Năm
+                clockElement.textContent = `${dayOfWeek}, ${dateString} ${timeString} `;
+            }
+        }
+
+        // --- DỮ LIỆU CỐ ĐỊNH: QUY ƯỚC CHẤM CÔNG VÀ Ý NGHĨA ---
+        const timeSheetCodes = [
+            { code: 'X', value: 1.0, isSalaryDay: true, label: 'Đi làm (1.0 Ngày Công)' }, // 1 ngày công, 1 ngày lương, 1 ăn ca
+            { code: 'SC', value: 0.5, isSalaryDay: true, label: 'Chấm công sáng chiều (0.5 Ngày Công)' }, // 0.5 ngày công, 0.5 ngày lương, 0.5 ăn ca
+            { code: 'P', value: 0, isSalaryDay: true, label: 'Nghỉ phép (Nghỉ hàng năm - 1.0 Ngày Lương)' }, // 0 ngày công, 1 ngày lương, 0 ăn ca (vì không có mặt)
+            { code: 'B', value: 1.0, isSalaryDay: true, label: 'Đi công tác (1.0 Ngày Công)' }, // 1 ngày công, 1 ngày lương, 1 ăn ca (tạm tính)
+            { code: 'V', value: 0, isSalaryDay: true, label: 'Nghỉ hiếu (1.0 Ngày Lương)' }, // 0 ngày công, 1 ngày lương, 0 ăn ca
+            { code: 'C', value: 0, isSalaryDay: true, label: 'Nghỉ hỷ (1.0 Ngày Lương)' }, // 0 ngày công, 1 ngày lương, 0 ăn ca
+            { code: 'T', value: 0, isSalaryDay: true, label: 'Nghỉ thai sản (1.0 Ngày Lương)' }, // 0 ngày công, 1 ngày lương, 0 ăn ca
+            { code: 'S', value: 0, isSalaryDay: true, label: 'Nghỉ ốm dài ngày (1.0 Ngày Lương)' }, // 0 ngày công, 1 ngày lương, 0 ăn ca
+            { code: 'M', value: 0, isSalaryDay: true, label: 'Nghỉ dưỡng sức (1.0 Ngày Lương)' }, // 0 ngày công, 1 ngày lương, 0 ăn ca
+            { code: 'H', value: 0, isSalaryDay: true, label: 'Nghỉ đi học (1.0 Ngày Lương)' }, // 0 ngày công, 1 ngày lương, 0 ăn ca
+            { code: 'D', value: 0, isSalaryDay: false, label: 'Nghỉ tự do (Khác - 0 Ngày Lương)' }, // 0 ngày công, 0 ngày lương, 0 ăn ca
+            { code: 'N', value: 0, isSalaryDay: false, label: 'Nghỉ không lương (0 Ngày Lương)' }, // 0 ngày công, 0 ngày lương, 0 ăn ca
+            { code: 'K', value: 0, isSalaryDay: false, label: 'Nghỉ khác (Không xác định - 0 Ngày Lương)' } // 0 ngày công, 0 ngày lương, 0 ăn ca
+        ];
+        
+        // Tạo map để tra cứu nhanh thông tin code
+        const codeMap = new Map(timeSheetCodes.map(item => [item.code, item]));
+
+        // --- DỮ LIỆU CỐ ĐỊNH BAN ĐẦU (Sử dụng bởi Admin và Report) ---
+        // Dữ liệu đã được sắp xếp lại theo Ma_CB tăng dần
+                let employeeData = [
+            { Ma_CB: '202600019', Ho_Ten: 'Nguyễn A', Gioi_Tinh: 'Nữ', Ngay_Sinh: '33965', Ngay_BD_CT: '44558', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202636374', Ho_Ten: 'Trần B', Gioi_Tinh: 'Nữ', Ngay_Sinh: '29058', Ngay_BD_CT: '36814', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202606932', Ho_Ten: 'Đoàn C', Gioi_Tinh: 'Nữ', Ngay_Sinh: '29122', Ngay_BD_CT: '36892', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202639274', Ho_Ten: 'Hoàng D', Gioi_Tinh: 'Nữ', Ngay_Sinh: '30187', Ngay_BD_CT: '39255', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202600162', Ho_Ten: 'Hà Em', Gioi_Tinh: 'Nữ', Ngay_Sinh: '31533', Ngay_BD_CT: '45505', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202639436', Ho_Ten: 'Lê Quốc Vân', Gioi_Tinh: 'Nam', Ngay_Sinh: '30244', Ngay_BD_CT: '39356', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202600320', Ho_Ten: 'Lê Lai', Gioi_Tinh: 'Nữ', Ngay_Sinh: '33529', Ngay_BD_CT: '41456', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202631467', Ho_Ten: 'Long Nữ', Gioi_Tinh: 'Nữ', Ngay_Sinh: '30168', Ngay_BD_CT: '38447', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202605472', Ho_Ten: 'Thủy Triều', Gioi_Tinh: 'Nữ', Ngay_Sinh: '30303', Ngay_BD_CT: '40162', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202600010', Ho_Ten: 'Huyền Xính', Gioi_Tinh: 'Nữ', Ngay_Sinh: '33040', Ngay_BD_CT: '41659', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202602287', Ho_Ten: 'Linh Mít', Gioi_Tinh: 'Nữ', Ngay_Sinh: '30478', Ngay_BD_CT: '38701', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202602422', Ho_Ten: 'Tâm Sư', Gioi_Tinh: 'Nữ', Ngay_Sinh: '32379', Ngay_BD_CT: '40513', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202600743', Ho_Ten: 'Tùng Tùng', Gioi_Tinh: 'Nam', Ngay_Sinh: '33554', Ngay_BD_CT: '41837', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202602472', Ho_Ten: 'Vũ Bão', Gioi_Tinh: 'Nam', Ngay_Sinh: '29077', Ngay_BD_CT: '37591', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202606037', Ho_Ten: 'Hòa không thắng', Gioi_Tinh: 'Nữ', Ngay_Sinh: '26833', Ngay_BD_CT: '37622', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202649167', Ho_Ten: 'Oanh Oanh', Gioi_Tinh: 'Nữ', Ngay_Sinh: '28686', Ngay_BD_CT: '39753', Noi_Cong_Tac: 'P.B' },
+            { Ma_CB: '202600612', Ho_Ten: 'Cúc Phương', Gioi_Tinh: 'Nữ', Ngay_Sinh: '27534', Ngay_BD_CT: '39753', Noi_Cong_Tac: 'P.B' }
+        ];
+        
+        // Dữ liệu nghỉ phép cố định
+        let leaveHistoryData = [
+            { id: 1, Ma_CB: '200739853', So_Ngay_Nghi: 5, Ly_Do: 'P', Trang_Thai: 'Đã duyệt' }
+        ];
+        let nextLeaveId = 2; // Biến theo dõi ID cho bản ghi mới
+
+        const CORRECT_PASSWORD = 'admin123';
+        const TODAY = new Date('2025-12-31'); 
+        const CURRENT_YEAR = TODAY.getFullYear();
+        
+        // Ký hiệu ngày công chuẩn theo yêu cầu mới
+        const WORK_DAY_SYMBOL = 'X'; 
+
+        // --- HÀM CHUYỂN ĐỔI NGÀY THÁNG ---
+        function getJSDateFromExcelSerial(serial) {
+            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+            const days = serial > 60 ? serial - 1 : serial; 
+            const ms = days * 24 * 60 * 60 * 1000;
+            return new Date(excelEpoch.getTime() + ms);
+        }
+
+        function formatDateForCalculation(serial) {
+            const jsDate = getJSDateFromExcelSerial(serial);
+            const year = jsDate.getUTCFullYear();
+            const month = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(jsDate.getUTCDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        function formatDateForDisplay(serial) {
+            if (isNaN(serial) || serial <= 0) return 'N/A';
+            const jsDate = getJSDateFromExcelSerial(serial);
+            const year = jsDate.getUTCFullYear();
+            const month = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(jsDate.getUTCDate()).padStart(2, '0');
+            return `${day}/${month}/${year}`;
+        }
+
+        // Thêm hàm chuyển đổi ngược từ dd/MM/yyyy sang Excel Serial Date (Số)
+        function getExcelSerialFromDisplayDate(dateStr) {
+            const parts = dateStr.split('/'); // dd/MM/yyyy
+            if (parts.length !== 3) return NaN;
+
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10);
+            const year = parseInt(parts[2], 10);
+
+            if (isNaN(day) || isNaN(month) || isNaN(year)) return NaN;
+            
+            // Sử dụng UTC để nhất quán với logic tính toán ban đầu
+            const date = new Date(Date.UTC(year, month - 1, day));
+            const excelEpoch = new Date(Date.UTC(1899, 11, 30)); 
+            
+            const diffMs = date.getTime() - excelEpoch.getTime();
+            
+            // Số ngày kể từ 1899-12-30
+            let daysSinceEpoch = Math.round(diffMs / (1000 * 60 * 60 * 24));
+            
+            // Áp dụng logic bù trừ cho lỗi năm nhuận 1900 của Excel: 
+            // Nếu ngày tính toán từ 1900-03-01 trở đi (tức là > 60 ngày), 
+            // Excel Serial Date sẽ cộng thêm 1 ngày so với ngày thực tế.
+            let serial;
+            if (daysSinceEpoch > 60) {
+                serial = daysSinceEpoch + 1;
+            } else {
+                serial = daysSinceEpoch;
+            }
+            
+            if (serial >= 1) {
+                return serial;
+            }
+
+            return NaN;
+        }
+        
+        // ====================================================================
+        //                          CHỨC NĂNG BÁO CÁO (REPORT)
+        // ====================================================================
+
+        function prepareEmployeeDataForReport(dataArray) {
+            return dataArray.map(nv => {
+                const serialNgayBDCT = parseInt(nv.Ngay_BD_CT);
+                
+                return {
+                    Ma_CB: nv.Ma_CB,
+                    Ho_Ten: nv.Ho_Ten,
+                    Gioi_Tinh: nv.Gioi_Tinh,
+                    Ngay_Sinh_Display: formatDateForDisplay(parseInt(nv.Ngay_Sinh)),
+                    Ngay_BD_CT_Display: formatDateForDisplay(serialNgayBDCT),
+                    Ngay_BD_CT_Calc: formatDateForCalculation(serialNgayBDCT),
+                    Noi_Cong_Tac: nv.Noi_Cong_Tac
+                };
+            });
+        }
+
+        function tinhNgayPhepNam(ngayBatDauStrCalc) {
+            const ngayBatDau = new Date(ngayBatDauStrCalc);
+            const namBatDau = ngayBatDau.getFullYear();
+            const soNamCongTac = CURRENT_YEAR - namBatDau;
+            
+            const ngayPhepCoBan = 12; 
+            const ngayPhepThamNien = Math.floor(soNamCongTac / 5);
+            
+            return {
+                tongNgayPhep: ngayPhepCoBan + ngayPhepThamNien,
+                soNamCongTac: soNamCongTac,
+                ngayPhepThamNien: ngayPhepThamNien
+            };
+        }
+
+        function tinhNgayPhepConLai(nvInfo, leaveHistory) {
+            const phepDuocHuong = tinhNgayPhepNam(nvInfo.Ngay_BD_CT_Calc);
+            
+            const ngayPhepDaDung = leaveHistory
+                .filter(phep => 
+                    phep.Ma_CB === nvInfo.Ma_CB && 
+                    phep.Ly_Do === 'P' && 
+                    phep.Trang_Thai === 'Đã duyệt'
+                )
+                .reduce((sum, phep) => sum + phep.So_Ngay_Nghi, 0);
+
+            const ngayPhepConLai = phepDuocHuong.tongNgayPhep - ngayPhepDaDung;
+
+            return {
+                ...nvInfo,
+                ...phepDuocHuong,
+                ngayPhepDaDung: ngayPhepDaDung,
+                ngayPhepConLai: ngayPhepConLai
+            };
+        }
+
+        // CHỨC NĂNG MỚI: Hiển thị bảng Lịch sử Nghỉ Phép với các nút quản lý
+        function renderLeaveHistoryTable(employeeDataForReport, leaveHistory) {
+            const historyDiv = document.getElementById('leave-history-enriched');
+            const employeeMap = new Map(employeeDataForReport.map(nv => [nv.Ma_CB, nv.Ho_Ten]));
+            
+            // Lấy danh sách các mã CB có thể chọn
+            const maCBOptions = employeeDataForReport.map(nv => nv.Ma_CB);
+
+            let tableHTML = `
+                <h2>🗓️ Lịch sử Nghỉ Phép Chi tiết</h2>
+                <button onclick="showLeaveHistoryForm()" style="background-color: #0056b3; color: white; margin-bottom: 10px;">➕ Thêm mới Lịch sử Phép</button>
+                <div id="add-edit-leave-form" style="display:none; margin-bottom: 15px; padding: 15px; border: 1px solid #ffc107; border-radius: 8px; background-color: #fff3e6;">
+                    <h3><span id="leave-form-title">Thêm</span> Lịch sử Nghỉ Phép</h3>
+                    <input type="hidden" id="leave-edit-id">
+                    <label for="leave-Ma_CB">Mã CB:</label>
+                    <select id="leave-Ma_CB" style="padding: 5px; margin-right: 10px; width: 150px;">
+                        ${maCBOptions.map(ma => `<option value="${ma}">${ma}</option>`).join('')}
+                    </select>
+                    <label for="leave-So_Ngay_Nghi">Số Ngày Nghỉ:</label>
+                    <input type="number" id="leave-So_Ngay_Nghi" step="0.5" placeholder="Số ngày" required style="padding: 5px; width: 80px;">
+                    <label for="leave-Ly_Do">Lý Do (P/V/C/...):</label>
+                    <select id="leave-Ly_Do" style="padding: 5px; margin-right: 10px; width: 100px;">
+                        ${timeSheetCodes.filter(c => c.isSalaryDay).map(c => `<option value="${c.code}">${c.code} (${c.label.split('(')[0]})</option>`).join('')}
+                    </select>
+                    <label for="leave-Trang_Thai">Trạng Thái:</label>
+                    <select id="leave-Trang_Thai" style="padding: 5px; margin-right: 15px; width: 120px;">
+                        <option value="Đã duyệt">Đã duyệt</option>
+                        <option value="Chờ duyệt">Chờ duyệt</option>
+                    </select>
+                    <button onclick="saveLeaveHistory()" class="btn-save">Lưu</button>
+                    <button onclick="hideLeaveHistoryForm()" class="btn-cancel">Hủy</button>
+                    <p class="error" id="leave-form-message"></p>
+                </div>
+            `;
+            
+            if (leaveHistory.length === 0) {
+                historyDiv.innerHTML = tableHTML + '<p>Không có dữ liệu lịch sử nghỉ phép nào.</p>';
+                return;
+            }
+
+            tableHTML += '<table style="width: 100%;"><thead><tr><th>ID</th><th>Mã CB</th><th>Tên Cán Bộ</th><th>Số Ngày Nghỉ</th><th>Lý Do</th><th>Trạng Thái</th><th>Hành động</th></tr></thead><tbody>';
+
+            leaveHistory.forEach(phep => {
+                const tenCB = employeeMap.get(phep.Ma_CB) || '[Không tìm thấy tên]';
+                tableHTML += `
+                    <tr>
+                        <td>${phep.id}</td>
+                        <td>${phep.Ma_CB}</td>
+                        <td><strong>${tenCB}</strong></td>
+                        <td>${phep.So_Ngay_Nghi}</td>
+                        <td>${phep.Ly_Do}</td>
+                        <td>${phep.Trang_Thai}</td>
+                        <td>
+                            <button class="btn-edit" onclick="editLeaveHistory(${phep.id})">Sửa</button>
+                            <button class="btn-delete" onclick="deleteLeaveHistory(${phep.id})">Xóa</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tableHTML += '</tbody></table>';
+            historyDiv.innerHTML = tableHTML;
+        }
+
+        // CHỨC NĂNG MỚI: Hiển thị form Thêm/Sửa Lịch sử Nghỉ Phép
+        function showLeaveHistoryForm() {
+            document.getElementById('leave-form-title').textContent = 'Thêm';
+            document.getElementById('leave-edit-id').value = '';
+            document.getElementById('leave-Ma_CB').value = employeeData[0] ? employeeData[0].Ma_CB : '';
+            document.getElementById('leave-So_Ngay_Nghi').value = '1';
+            document.getElementById('leave-Ly_Do').value = 'P';
+            document.getElementById('leave-Trang_Thai').value = 'Đã duyệt';
+            document.getElementById('leave-form-message').textContent = '';
+            document.getElementById('add-edit-leave-form').style.display = 'block';
+        }
+
+        function hideLeaveHistoryForm() {
+            document.getElementById('add-edit-leave-form').style.display = 'none';
+        }
+        
+        // CHỨC NĂNG MỚI: Sửa Lịch sử Nghỉ Phép
+        function editLeaveHistory(id) {
+            const phep = leaveHistoryData.find(p => p.id === id);
+            if (!phep) return;
+
+            document.getElementById('leave-form-title').textContent = 'Chỉnh sửa';
+            document.getElementById('leave-edit-id').value = id;
+            document.getElementById('leave-Ma_CB').value = phep.Ma_CB;
+            document.getElementById('leave-So_Ngay_Nghi').value = phep.So_Ngay_Nghi;
+            document.getElementById('leave-Ly_Do').value = phep.Ly_Do;
+            document.getElementById('leave-Trang_Thai').value = phep.Trang_Thai;
+            
+            document.getElementById('leave-form-message').textContent = '';
+            document.getElementById('add-edit-leave-form').style.display = 'block';
+        }
+
+        // CHỨC NĂNG MỚI: Xóa Lịch sử Nghỉ Phép
+        function deleteLeaveHistory(id) {
+            const index = leaveHistoryData.findIndex(p => p.id === id);
+            if (index !== -1) {
+                if (confirm(`Bạn có chắc chắn muốn xóa lịch sử nghỉ phép có ID ${id}?`)) {
+                    leaveHistoryData.splice(index, 1);
+                    loadAndProcessData(); // Cập nhật báo cáo
+                }
+            }
+        }
+        
+        // CHỨC NĂNG MỚI: Lưu Lịch sử Nghỉ Phép (Thêm mới hoặc Chỉnh sửa)
+        function saveLeaveHistory() {
+            const id = document.getElementById('leave-edit-id').value;
+            const Ma_CB = document.getElementById('leave-Ma_CB').value.trim();
+            const So_Ngay_Nghi = parseFloat(document.getElementById('leave-So_Ngay_Nghi').value);
+            const Ly_Do = document.getElementById('leave-Ly_Do').value.trim();
+            const Trang_Thai = document.getElementById('leave-Trang_Thai').value.trim();
+            const messageEl = document.getElementById('leave-form-message');
+
+            if (!Ma_CB || isNaN(So_Ngay_Nghi) || So_Ngay_Nghi <= 0 || !Ly_Do || !Trang_Thai) {
+                messageEl.textContent = 'Vui lòng điền đầy đủ và chính xác các trường (Số ngày nghỉ phải lớn hơn 0).';
+                return;
+            }
+
+            const newHistory = { Ma_CB, So_Ngay_Nghi, Ly_Do, Trang_Thai };
+
+            if (id === '') {
+                // Thêm mới
+                newHistory.id = nextLeaveId++;
+                leaveHistoryData.push(newHistory);
+            } else {
+                // Chỉnh sửa
+                const index = leaveHistoryData.findIndex(p => p.id === parseInt(id));
+                if (index !== -1) {
+                    newHistory.id = parseInt(id);
+                    leaveHistoryData[index] = newHistory;
+                }
+            }
+
+            hideLeaveHistoryForm();
+            loadAndProcessData(); // Cập nhật báo cáo
+        }
+
+        function displaySummaryResults(reportData) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>📈 Báo Cáo Ngày Nghỉ Phép Năm</h2>';
+
+            if (reportData.length === 0) {
+                resultsDiv.innerHTML += '<p style="color: red; font-weight: bold;">Không có dữ liệu người lao động nào phù hợp với tiêu chí lọc.</p>';
+                return;
+            }
+
+            reportData.forEach(result => {
+                const html = `
+                    <div class="nhan-vien-card">
+                        <h3>👤 ${result.Ho_Ten} (${result.Ma_CB}) - ${result.Noi_Cong_Tac}</h3>
+                        <p><strong>Ngày Sinh:</strong> ${result.Ngay_Sinh_Display}</p>
+                        <p><strong>Ngày BĐ Công Tác:</strong> ${result.Ngay_BD_CT_Display} | Thâm niên: ${result.soNamCongTac} năm (Cộng thêm ${result.ngayPhepThamNien} ngày thâm niên)</p>
+                        <hr>
+                        <p class="result"><strong>Tổng số ngày phép được hưởng:</strong> <strong style="font-size: 1.1em;">${result.tongNgayPhep} ngày</strong></p>
+                        <p class="result"><strong>Số ngày phép năm đã sử dụng (Ký hiệu P):</strong> ${result.ngayPhepDaDung} ngày</p>
+                        <p class="result"><strong>Số ngày nghỉ phép còn lại:</strong> <strong style="color: ${result.ngayPhepConLai >= 0 ? '#198754' : '#dc3545'}; font-size: 1.2em;">${result.ngayPhepConLai} ngày</strong></p>
+                    </div>
+                `;
+                resultsDiv.innerHTML += html;
+            });
+        }
+
+        function displayLeaveHistory(employeeDataForReport, leaveHistoryData) {
+            const historyDiv = document.getElementById('leave-history-enriched');
+            const employeeMap = new Map(employeeDataForReport.map(nv => [nv.Ma_CB, nv.Ho_Ten]));
+
+            let tableHTML = '<h2>🗓️ Lịch sử Nghỉ Phép Chi tiết</h2>';
+            if (leaveHistoryData.length === 0) {
+                historyDiv.innerHTML = tableHTML + '<p>Không có dữ liệu lịch sử nghỉ phép nào.</p>';
+                return;
+            }
+            
+            tableHTML += '<table>';
+            tableHTML += '<tr><th>Mã CB</th><th>Tên Cán Bộ</th><th>Số Ngày Nghỉ</th><th>Lý Do</th><th>Trạng Thái</th></tr>';
+
+            leaveHistoryData.forEach(phep => {
+                const tenCB = employeeMap.get(phep.Ma_CB) || '[Không tìm thấy tên]';
+                tableHTML += `
+                    <tr>
+                        <td>${phep.Ma_CB}</td>
+                        <td><strong>${tenCB}</strong></td>
+                        <td>${phep.So_Ngay_Nghi}</td>
+                        <td>${phep.Ly_Do}</td>
+                        <td>${phep.Trang_Thai}</td>
+                    </tr>
+                `;
+            });
+            tableHTML += '</table>';
+            historyDiv.innerHTML = tableHTML;
+        }
+
+        function displaySummaryResults(nhanVienData, leaveHistoryData) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>📈 Báo Cáo Ngày Nghỉ Phép Năm</h2>';
+
+            if (nhanVienData.length === 0) {
+                resultsDiv.innerHTML += '<p style="color: red;">Không có dữ liệu người lao động nào để tính toán. Vui lòng thêm nhân sự ở tab Quản Lý.</p>';
+                return;
+            }
+
+            nhanVienData.forEach(nv => {
+                const result = tinhNgayPhepConLai(nv, leaveHistoryData);
+                
+                const html = `
+                    <div class="nhan-vien-card">
+                        <h3>👤 ${result.Ho_Ten} (${result.Ma_CB}) - ${result.Noi_Cong_Tac}</h3>
+                        <p><strong>Ngày Sinh:</strong> ${result.Ngay_Sinh_Display}</p>
+                        <p><strong>Ngày BĐ Công Tác:</strong> ${result.Ngay_BD_CT_Display} | Thâm niên: ${result.soNamCongTac} năm (Cộng thêm ${result.ngayPhepThamNien} ngày thâm niên)</p>
+                        <hr>
+                        <p class="result"><strong>Tổng số ngày phép được hưởng:</strong> <strong style="font-size: 1.1em;">${result.tongNgayPhep} ngày</strong></p>
+                        <p class="result"><strong>Số ngày phép năm đã sử dụng (Ký hiệu P):</strong> ${result.ngayPhepDaDung} ngày</p>
+                        <p class="result"><strong>Số ngày nghỉ phép còn lại:</strong> <strong style="color: ${result.ngayPhepConLai >= 0 ? '#198754' : '#dc3545'}; font-size: 1.2em;">${result.ngayPhepConLai} ngày</strong></p>
+                    </div>
+                `;
+                resultsDiv.innerHTML += html;
+            });
+        }
+        
+        function loadAndProcessData() {
+            // Sắp xếp dữ liệu trước khi xử lý báo cáo
+            employeeData.sort((a, b) => a.Ma_CB.localeCompare(b.Ma_CB));
+            
+            // 1. Lọc dữ liệu nhân viên theo tiêu chí mới
+            const filteredEmployeeData = filterEmployeeData(employeeData);
+            
+            // 2. Chuẩn bị dữ liệu nhân viên đã lọc cho báo cáo
+            const reportEmployeeData = prepareEmployeeDataForReport(filteredEmployeeData);
+            
+            // 3. Tính toán ngày phép và ngày phép còn lại
+            const fullReportData = reportEmployeeData.map(nv => tinhNgayPhepConLai(nv, leaveHistoryData));
+            
+            // 4. Lọc lịch sử nghỉ phép chỉ hiển thị của những người đã được lọc
+            const filteredMaCBs = new Set(filteredEmployeeData.map(nv => nv.Ma_CB));
+            const filteredLeaveHistory = leaveHistoryData
+                .filter(phep => filteredMaCBs.has(phep.Ma_CB))
+                .sort((a, b) => b.id - a.id); // Sắp xếp theo ID giảm dần
+            
+            // 5. Hiển thị lịch sử nghỉ phép
+            //displayLeaveHistory(reportEmployeeData, filteredLeaveHistory);
+            // 5. Hiển thị lịch sử nghỉ phép (DÙNG HÀM MỚI)
+            renderLeaveHistoryTable(reportEmployeeData, filteredLeaveHistory);
+
+            // 6. Hiển thị báo cáo tổng hợp
+            displaySummaryResults(fullReportData);
+        }
+
+
+        function displaySummaryResults(reportData) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>📈 Báo Cáo Ngày Nghỉ Phép Năm</h2>';
+
+            if (reportData.length === 0) {
+                resultsDiv.innerHTML += '<p style="color: red; font-weight: bold;">Không có dữ liệu người lao động nào phù hợp với tiêu chí lọc.</p>';
+                return;
+            }
+
+            reportData.forEach(result => {
+                const html = `
+                    <div class="nhan-vien-card">
+                        <h3>👤 ${result.Ho_Ten} (${result.Ma_CB}) - ${result.Noi_Cong_Tac}</h3>
+                        <p><strong>Ngày Sinh:</strong> ${result.Ngay_Sinh_Display}</p>
+                        <p><strong>Ngày BĐ Công Tác:</strong> ${result.Ngay_BD_CT_Display} | Thâm niên: ${result.soNamCongTac} năm (Cộng thêm ${result.ngayPhepThamNien} ngày thâm niên)</p>
+                        <hr>
+                        <p class="result"><strong>Tổng số ngày phép được hưởng:</strong> <strong style="font-size: 1.1em;">${result.tongNgayPhep} ngày</strong></p>
+                        <p class="result"><strong>Số ngày phép năm đã sử dụng (Ký hiệu P):</strong> ${result.ngayPhepDaDung} ngày</p>
+                        <p class="result"><strong>Số ngày nghỉ phép còn lại:</strong> <strong style="color: ${result.ngayPhepConLai >= 0 ? '#198754' : '#dc3545'}; font-size: 1.2em;">${result.ngayPhepConLai} ngày</strong></p>
+                    </div>
+                `;
+                resultsDiv.innerHTML += html;
+            });
+        }
+        // ====================================================================
+        //                          CHỨC NĂNG BẢNG CHẤM CÔNG (TIMESHEET)
+        // ====================================================================
+
+        function getDaysInMonth(year, month) {
+            // Month is 1-indexed (1=Jan, 12=Dec)
+            return new Date(year, month, 0).getDate();
+        }
+
+        // --- HÀM TÍNH TOÁN LẠI TỔNG CỘT CHO MỘT HÀNG ---
+        function recalculateRowTotals(inputElement) {
+            // 1. Tìm ra hàng (<tr>) chứa input này
+            const row = inputElement.closest('tr');
+            if (!row) return;
+
+            // 2. Lấy tất cả các ô input chấm công trong hàng
+            const dailyInputs = row.querySelectorAll('.timesheet-input');
+            
+            let totalWorkingDays = 0;
+            let totalSalaryDays = 0;
+            let totalMealDays = 0;
+
+            dailyInputs.forEach(input => {
+                const code = input.value.toUpperCase().trim();
+                const info = codeMap.get(code);
+
+                // Nếu là ngày nghỉ cuối tuần, bỏ qua
+                if (input.dataset.isWeekend === 'true' || !code) {
+                    return;
+                }
+
+                if (info) {
+                    // TÍNH TỔNG NGÀY CÔNG (X, SC, B)
+                    // Chỉ tính nếu là các ký hiệu có 'value' (X=1.0, SC=0.5, B=1.0)
+                    totalWorkingDays += info.value; 
+                    
+                    // TÍNH NGÀY LƯƠNG
+                    // Tính nếu isSalaryDay là true (Phép P, ốm S,...) HOẶC nếu là ngày công (X, SC, B)
+                    if (info.isSalaryDay) {
+                        // Ngày lương được tính là 1.0 cho tất cả các loại nghỉ có lương (P, V, C, T, S, M, H)
+                        // và được tính theo value (1.0, 0.5) cho ngày công (X, SC, B).
+                        // Vì P, V, C, T, S, M, H đều có value = 0, ta cần kiểm tra lại
+                        if (code === 'X' || code === 'B') {
+                            totalSalaryDays += 1.0;
+                        } else if (code === 'SC') {
+                            totalSalaryDays += 0.5;
+                        } else {
+                            // P, V, C, T, S, M, H là 1.0 ngày lương
+                            totalSalaryDays += 1.0; 
+                        }
+                    } 
+                    
+                    // TÍNH ĂN CA (MẶC ĐỊNH LÀ CÓ MẶT TẠI CƠ QUAN: X, SC, B)
+                    // Chỉ tính nếu là ngày công thực tế (X, SC, B)
+                    if (code === 'X' || code === 'B') {
+                        totalMealDays += 1.0;
+                    } else if (code === 'SC') {
+                        totalMealDays += 0.5;
+                    }
+                    
+                }
+            });
+
+            // 3. Cập nhật các ô tổng cuối cùng (Cột ngày làm việc cuối cùng + 1, 2, 3)
+            const cells = row.querySelectorAll('td');
+            const numDayCells = dailyInputs.length;
+            
+            // Vị trí cột Tổng ngày công (Total Working Days)
+            const totalWorkingCellIndex = 2 + numDayCells; 
+            // Vị trí cột Ngày lương
+            const salaryDayCellIndex = totalWorkingCellIndex + 1;
+            // Vị trí cột Ăn ca
+            const mealDayCellIndex = totalWorkingCellIndex + 2;
+
+            if (cells[totalWorkingCellIndex]) {
+                cells[totalWorkingCellIndex].textContent = totalWorkingDays.toFixed(1).replace('.0', '');
+            }
+            if (cells[salaryDayCellIndex]) {
+                cells[salaryDayCellIndex].textContent = totalSalaryDays.toFixed(1).replace('.0', '');
+            }
+            if (cells[mealDayCellIndex]) {
+                cells[mealDayCellIndex].textContent = totalMealDays.toFixed(1).replace('.0', '');
+            }
+        }
+
+
+        function generateTimesheetTable(year, month) {
+            if (employeeData.length === 0) {
+                return '<p class="error">Không có dữ liệu nhân sự để tạo bảng chấm công. Vui lòng thêm nhân sự ở tab Quản Lý.</p>';
+            }
+
+            // Đảm bảo dữ liệu được sắp xếp theo Ma_CB trước khi tạo bảng
+            employeeData.sort((a, b) => a.Ma_CB.localeCompare(b.Ma_CB));
+
+            const numDays = getDaysInMonth(year, month);
+            const firstDayOfMonth = new Date(year, month - 1, 1); 
+
+            let headerRows = `<tr><th rowspan="2">STT</th><th rowspan="2">Họ Tên (Mã CB)</th>`; 
+            let subHeaderRows = ``;
+            let workingDaysCount = 0;
+            
+            // THÊM DATALIST VÀO ĐẦU HTML ĐỂ CÓ THỂ SỬ DỤNG
+            let datalistHTML = '<datalist id="timesheetCodes">';
+            timeSheetCodes.forEach(item => {
+                // Sửa ở đây: Bạn đang sử dụng `value="${item.code}"` và nhãn hiển thị là `option`
+                // Tuy nhiên, để trình duyệt hiển thị rõ ràng hơn và không bị cắt, ta nên dùng `label`.
+                // Trong HTML5, `datalist` thường hiển thị `value` hoặc `label` nếu có.
+                datalistHTML += `<option value="${item.code}">${item.code}: ${item.label}</option>`;
+            });
+            datalistHTML += '</datalist>';
+
+
+            // Lặp qua tất cả các ngày trong tháng
+            const dayOfWeekArray = []; // Lưu trữ ngày trong tuần để sử dụng sau
+            for (let day = 1; day <= numDays; day++) {
+                firstDayOfMonth.setDate(day); 
+                const dayOfWeek = firstDayOfMonth.getDay(); 
+                dayOfWeekArray.push(dayOfWeek);
+                
+                const displayDate = String(day).padStart(2, '0');
+                const dayName = dayOfWeek === 0 ? 'CN' : dayOfWeek === 6 ? 'T7' : `T${dayOfWeek + 1}`;
+                
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    workingDaysCount++;
+                    headerRows += `<th style="background-color: #e9f7ff;">${displayDate}</th>`;
+                    subHeaderRows += `<th style="font-weight: bold; font-size: 0.7em;">${dayName}</th>`;
+                } else {
+                    headerRows += `<th class="weekend-header">${displayDate}</th>`;
+                    subHeaderRows += `<th class="weekend-header" style="font-weight: bold; font-size: 0.7em;">${dayName}</th>`;
+                }
+            }
+            
+            // THÊM 2 CỘT MỚI VÀO PHẦN HEADER
+            headerRows += `<th rowspan="2" class="total-column">Tổng ngày công (X;SC;B)</th><th rowspan="2" class="salary-day-column" style="width: 50px;">Ngày lương</th><th rowspan="2" class="meal-column" style="width: 50px;">Ăn ca</th></tr>`;
+            subHeaderRows = `<tr>${subHeaderRows}</tr>`;
+
+            let tableHTML = datalistHTML + `
+                <table class="print-visible timesheet-header-for-export" style="width: 100%; border: none; margin-bottom: 20px; font-size: 10pt; table-layout: fixed;">
+                    <tr>
+                        <td style="width: 55%; text-align: center; border: none; padding: 0; vertical-align: top;">
+                            <strong style="display: block; text-transform: uppercase; white-space: nowrap;">TÊN CÔNG TY MẸ</strong>
+                            <strong style="display: block; white-space: nowrap;">TÊN CÔNG TY CON</strong>
+                            <strong style="display: block; white-space: nowrap;">Tên phòng nghiệp vụ</strong>
+                            <hr style="width: 70%; margin: 5px auto; border-top: 1px solid #000; border-bottom: none;">
+                        </td>
+                        <td style="width: 45%; text-align: center; border: none; padding: 0; vertical-align: top;">
+                            <strong style="display: block; text-transform: uppercase; white-space: nowrap;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong>
+                            <strong style="display: block; white-space: nowrap;">Độc lập - Tự do - Hạnh phúc</strong>
+                            <hr style="width: 70%; margin: 5px auto; border-top: 1px solid #000; border-bottom: none;">
+                        </td>
+                    </tr>
+                </table>
+                
+                <h2>Bảng Chấm Công Tháng ${month}/${year}</h2>
+                
+                <div class="scrollable-timesheet-wrapper" style="overflow-x: auto; border: 1px solid #ccc; border-radius: 5px;">
+                
+                <table class="timesheet-table" id="timesheetTableData">
+                    <thead>
+                        ${headerRows}
+                        ${subHeaderRows}
+                    </thead>
+                    <tbody>
+            `;
+
+            // Dữ liệu thân bảng
+            employeeData.forEach((nv, index) => {
+                let totalWorkingDays = 0;
+                let totalSalaryDays = 0; // Để theo dõi tính toán ban đầu
+                let totalMealDays = 0; // Để theo dõi tính toán ban đầu
+                
+                tableHTML += `<tr>`;
+                tableHTML += `<td>${index + 1}</td>`; // STT
+                tableHTML += `<td style="text-align: left; padding: 5px;">${nv.Ho_Ten} (${nv.Ma_CB})</td>`; // Họ Tên
+                
+                for (let day = 1; day <= numDays; day++) {
+                    const dayOfWeek = dayOfWeekArray[day - 1]; 
+                    
+                    let cellContent = '';
+                    let cellStyle = '';
+                    let isWeekend = false;
+                    
+                    if (dayOfWeek === 0 || dayOfWeek === 6) {
+                        cellContent = ''; 
+                        cellStyle = 'weekend-cell';
+                        isWeekend = true;
+                    } else {
+                        cellContent = WORK_DAY_SYMBOL; 
+                        
+                        // Tính toán mặc định ban đầu
+                        totalWorkingDays += 1.0;
+                        totalSalaryDays += 1.0;
+                        totalMealDays += 1.0;
+                    }
+                    
+                    // THAY THẾ td BẰNG input CÓ DATALIST VÀ ONCHANGE
+                    tableHTML += `
+                        <td class="${cellStyle}">
+                            <input 
+                                type="text" 
+                                class="timesheet-input" 
+                                list="timesheetCodes" 
+                                value="${cellContent}" 
+                                maxlength="2"
+                                data-is-weekend="${isWeekend}"
+                                onchange="recalculateRowTotals(this)"
+                                ${isWeekend ? 'disabled' : ''}
+                            >
+                        </td>
+                    `;
+                }
+                
+                // Cột Tổng (Lưu ý: các cột này sẽ được hàm JS recalculateRowTotals cập nhật
+                // ngay sau khi bảng được render, nhưng cần giá trị mặc định cho lần hiển thị đầu tiên)
+                tableHTML += `<td class="total-column">${totalWorkingDays.toFixed(1).replace('.0', '')}</td>`; 
+                tableHTML += `<td class="salary-day-column">${totalSalaryDays.toFixed(1).replace('.0', '')}</td>`; 
+                tableHTML += `<td class="meal-column">${totalMealDays.toFixed(1).replace('.0', '')}</td>`; 
+                tableHTML += `</tr>`;
+            });
+
+            tableHTML += `
+                    </tbody>
+                </table>
+            
+                </div>
+                
+                <p class="print-visible" style="font-size: 0.9em; margin-top: 5px; color: #dc3545; font-style: italic;">**LƯU Ý: Vui lòng nhập ký hiệu chấm công vào các ô đã mở. Các cột Tổng (Ngày công, Ngày lương, Ăn ca) sẽ tự động cập nhật dựa trên ký hiệu bạn nhập. Ngày lương được tính là 1.0 cho các ký hiệu có lương (P, V, C, T, S, M, H) và theo giá trị công (X=1.0, SC=0.5, B=1.0) cho ngày làm việc. Ăn ca chỉ tính X, SC, B.**</p>
+
+                <table class="signature-footer print-visible timesheet-footer-for-export" style="width: 100%; border: none; margin-top: 50px; font-size: 10pt; table-layout: fixed;">
+                    <tr>
+                        <td style="width: 33%; text-align: center; border: none; padding: 0;">
+                            <p style="margin: 0; padding: 5px 0;">Ngày... tháng... năm...</p>
+                            <strong style="display: block; font-size: 1.1em; margin-bottom: 70px;">NGƯỜI LẬP BẢNG</strong>
+                            <p style="margin: 0; padding: 5px 0;">(Ký, ghi rõ họ tên)</p>
+                        </td>
+                        <td style="width: 33%; text-align: center; border: none; padding: 0;">
+                            <p style="margin: 0; padding: 5px 0;">Ngày... tháng... năm...</p>
+                            <strong style="display: block; font-size: 1.1em; margin-bottom: 70px;">NGƯỜI KIỂM SOÁT</strong>
+                            <p style="margin: 0; padding: 5px 0;">(Ký, ghi rõ họ tên)</p>
+                        </td>
+                    </tr>
+                </table>
+                
+                <div class="convention-box print-visible">
+                    <h3>Quy ước Chấm công</h3>
+                    <ul>
+                        <li><strong>X:</strong> Đi làm (1.0 Ngày Công/Lương/Ăn ca).</li>
+                        <li><strong>SC:</strong> Chấm công sáng chiều (0.5 Ngày Công/Lương/Ăn ca).</li>
+                        <li><strong>P:</strong> Nghỉ phép (1.0 Ngày Lương, 0 Ngày Công/Ăn ca).</li>
+                        <li><strong>B:</strong> Đi công tác (1.0 Ngày Công/Lương/Ăn ca).</li>
+                        <li><strong>T:</strong> Nghỉ thai sản (1.0 Ngày Lương, 0 Ngày Công/Ăn ca).</li>
+                        <li><strong>V:</strong> Nghỉ hiếu (1.0 Ngày Lương, 0 Ngày Công/Ăn ca).</li>
+                        <li><strong>C:</strong> Nghỉ hỷ (1.0 Ngày Lương, 0 Ngày Công/Ăn ca).</li>
+                        <li><strong>D:</strong> Nghỉ tự do (0 Ngày Lương/Công/Ăn ca).</li>
+                        <li><strong>N:</strong> Nghỉ không lương (0 Ngày Lương/Công/Ăn ca).</li>
+                        <li><strong>S:</strong> Nghỉ ốm dài ngày (1.0 Ngày Lương, 0 Ngày Công/Ăn ca).</li>
+                        <li><strong>M:</strong> Nghỉ dưỡng sức (1.0 Ngày Lương, 0 Ngày Công/Ăn ca).</li>
+                        <li><strong>H:</strong> Nghỉ đi học (1.0 Ngày Lương, 0 Ngày Công/Ăn ca).</li>
+                        <li><strong>K:</strong> Nghỉ khác (0 Ngày Lương/Công/Ăn ca).</li>
+                    </ul>
+                    <p style="margin-top: 5px; font-weight: bold;">*Lưu ý: Dữ liệu tính toán chỉ mang tính tham khảo và có thể cần điều chỉnh thủ công theo quy định thực tế của đơn vị.*</p>
+                </div>
+            `;
+
+            return tableHTML;
+        }
+
+        // --- HÀM XUẤT EXCEL CHO BẢNG CHẤM CÔNG ---
+        function exportTimesheetToExcel() {
+            const resultsDiv = document.getElementById('timesheet-results');
+            const month = document.getElementById('timesheetMonth').value;
+            const year = document.getElementById('timesheetYear').value;
+            
+            if (resultsDiv.innerHTML.includes('Không có dữ liệu nhân sự')) {
+                alert('Vui lòng chọn tháng/năm hợp lệ và đảm bảo có dữ liệu nhân sự trước khi xuất Excel.');
+                return;
+            }
+
+            // 1. Lấy nội dung bảng
+            const table = document.getElementById('timesheetTableData');
+            
+            // TẠO BẢNG CHỈ VỚI GIÁ TRỊ TEXT (LOẠI BỎ INPUT)
+            const clonedTable = table.cloneNode(true);
+            clonedTable.querySelectorAll('.timesheet-input').forEach(input => {
+                const td = input.parentNode;
+                td.textContent = input.value;
+            });
+
+            // 2. Lấy nội dung tiêu đề hành chính (Đã là TABLE)
+            const headerContent = document.querySelector('.timesheet-header-for-export');
+            const headerHTML = headerContent ? headerContent.outerHTML : '';
+
+            // 3. Lấy nội dung chữ ký (Đã là TABLE)
+            const footerContent = document.querySelector('.timesheet-footer-for-export');
+            const footerHTML = footerContent ? footerContent.outerHTML : '';
+
+            // 4. Lấy nội dung quy ước chấm công
+            const conventionContent = document.querySelector('.convention-box');
+            const conventionHTML = conventionContent ? conventionContent.outerHTML : '';
+
+            // 5. Kết hợp tất cả nội dung
+            let fullHTML = `
+                <div style="font-family: Arial, sans-serif; font-size: 10pt;">
+                    ${headerHTML}
+                    <h2 style="text-align: center;">Bảng Chấm Công Tháng ${month}/${year}</h2>
+                    ${clonedTable ? clonedTable.outerHTML : ''}
+                    ${conventionHTML}
+                    <p style="font-size: 0.9em; margin-top: 5px; color: #dc3545; font-style: italic;">**LƯU Ý: Dữ liệu tính toán chỉ mang tính tham khảo và có thể cần điều chỉnh thủ công theo quy định thực tế của đơn vị.**</p>
+                    ${footerHTML}
+                </div>
+            `;
+            
+            // 6. Tạo file Blob (Sử dụng charset UTF-8 và mã hóa dạng HTML để giữ nguyên định dạng bảng)
+            const blob = new Blob([fullHTML], { 
+                type: 'application/vnd.ms-excel;charset=utf-8;' 
+            });
+            const link = document.createElement('a');
+            const fileName = `Bang_Cham_Cong_Thang_${month}_${year}.xls`;
+
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            alert(`Đã xuất file ${fileName}. Vui lòng mở bằng Excel để chỉnh sửa thủ công.`);
+        }
+        // --- HẾT HÀM XUẤT EXCEL ---
+
+        function populateMonthSelector() {
+            const monthSelect = document.getElementById('timesheetMonth');
+            const today = new Date();
+            const currentMonth = today.getMonth() + 1; // JS month is 0-indexed
+
+            monthSelect.innerHTML = ''; // Clear previous options
+            for (let i = 1; i <= 12; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `Tháng ${i}`;
+                if (i === currentMonth) {
+                    option.selected = true;
+                }
+                monthSelect.appendChild(option);
+            }
+            
+            document.getElementById('timesheetYear').value = today.getFullYear();
+        }
+        
+        // HÀM NÀY CHẠY KHI ẤN NÚT VÀ KHI CHUYỂN TAB
+        function renderTimesheetUI() {
+            const monthInput = document.getElementById('timesheetMonth');
+            const yearInput = document.getElementById('timesheetYear');
+            
+            const month = parseInt(monthInput.value);
+            const year = parseInt(yearInput.value);
+            const resultsDiv = document.getElementById('timesheet-results');
+
+            if (isNaN(month) || month < 1 || month > 12 || isNaN(year) || year < 2000) {
+                resultsDiv.innerHTML = '<p class="error">Vui lòng chọn tháng và năm hợp lệ.</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = generateTimesheetTable(year, month);
+            
+            // CHẠY HÀM TÍNH TOÁN LẠI TỔNG SAU KHI RENDER
+            document.querySelectorAll('#timesheetTableData tbody tr').forEach(row => {
+                // Lấy một input bất kỳ trong hàng (chỉ cần có 1 input để gọi hàm)
+                const firstInput = row.querySelector('.timesheet-input');
+                if (firstInput) {
+                    recalculateRowTotals(firstInput);
+                }
+            });
+        }
+
+        // Thêm hàm lọc dữ liệu nhân viên
+        function filterEmployeeData(data) {
+            // Lấy giá trị lọc và chuyển sang chữ thường (cho Họ Tên)
+            const filterHoTen = document.getElementById('filterHoTen').value.toLowerCase().trim();
+            const filterMaCB = document.getElementById('filterMaCB').value.trim();
+
+            if (!filterHoTen && !filterMaCB) {
+                return data; // Không có tiêu chí lọc, trả về toàn bộ
+            }
+
+            return data.filter(nv => {
+                let matchHoTen = true;
+                let matchMaCB = true;
+
+                if (filterHoTen) {
+                    // Lọc theo Họ Tên (không phân biệt chữ hoa, chữ thường, khớp một phần)
+                    matchHoTen = nv.Ho_Ten.toLowerCase().includes(filterHoTen);
+                }
+
+                if (filterMaCB) {
+                    // Lọc theo Mã CB (khớp một phần)
+                    matchMaCB = nv.Ma_CB.includes(filterMaCB);
+                }
+
+                // Trả về nếu khớp cả hai tiêu chí (AND logic)
+                return matchHoTen && matchMaCB;
+            });
+        }
+
+        // ====================================================================
+        //                        CHỨC NĂNG QUẢN TRỊ (ADMIN)
+        // ====================================================================
+
+        function openTab(tabId, tabButton) {
+            const tabpages = document.querySelectorAll('.tab-page');
+            tabpages.forEach(page => page.classList.remove('active'));
+
+            const tabbuttons = document.querySelectorAll('.tab-button');
+            tabbuttons.forEach(button => button.classList.remove('active'));
+
+            document.getElementById(tabId).classList.add('active');
+            tabButton.classList.add('active');
+            
+            if (tabId === 'admin-page' && document.getElementById('admin-panel').style.display !== 'none') {
+                renderTable();
+            } else if (tabId === 'report-page') {
+                loadAndProcessData();
+            } else if (tabId === 'timesheet-page') { 
+                renderTimesheetUI(); // Kích hoạt render và tính toán lại
+            }
+        }
+
+        function login() {
+            const passwordInput = document.getElementById('passwordInput').value;
+            const loginMessage = document.getElementById('loginMessage');
+            
+            if (passwordInput === CORRECT_PASSWORD) {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('admin-panel').style.display = 'block';
+                loginMessage.textContent = '';
+                renderTable();
+            } else {
+                loginMessage.textContent = 'Mật khẩu không đúng. Vui lòng thử lại.';
+            }
+        }
+
+        function renderTable() {
+            // Sắp xếp dữ liệu trước khi hiển thị trong bảng quản trị
+            employeeData.sort((a, b) => a.Ma_CB.localeCompare(b.Ma_CB));
+            
+            const tableBody = document.getElementById('employeeTableBody');
+            tableBody.innerHTML = '';
+
+            employeeData.forEach((nv, index) => {
+                const row = tableBody.insertRow();
+                row.innerHTML = `
+                    <td>${nv.Ma_CB}</td>
+                    <td>${nv.Ho_Ten}</td>
+                    <td>${nv.Gioi_Tinh}</td>
+                    <td>${formatDateForDisplay(parseInt(nv.Ngay_Sinh))}</td>
+                    <td>${formatDateForDisplay(parseInt(nv.Ngay_BD_CT))}</td>
+                    <td>${nv.Noi_Cong_Tac}</td>
+                    <td>
+                        <button class="btn-edit" onclick="editEmployee(${index})">Sửa</button>
+                        <button class="btn-delete" onclick="deleteEmployee(${index})">Xóa</button>
+                    </td>
+                `;
+            });
+        }
+
+        function showAddForm() {
+            document.getElementById('form-title').textContent = 'Thêm';
+            document.getElementById('edit-index').value = '';
+            document.getElementById('Ma_CB').value = '';
+            document.getElementById('Ho_Ten').value = '';
+            document.getElementById('Gioi_Tinh').value = '';
+            document.getElementById('Ngay_Sinh').value = ''; 
+            document.getElementById('Ngay_BD_CT').value = ''; 
+            document.getElementById('Noi_Cong_Tac').value = '';
+            document.getElementById('Ma_CB').disabled = false;
+            document.getElementById('form-message').textContent = '';
+            document.getElementById('add-edit-form').style.display = 'block';
+        }
+
+        function hideForm() {
+            document.getElementById('add-edit-form').style.display = 'none';
+            document.getElementById('form-message').textContent = '';
+        }
+
+        function editEmployee(index) {
+            const nv = employeeData[index];
+            document.getElementById('form-title').textContent = 'Chỉnh sửa';
+            document.getElementById('edit-index').value = index;
+            
+            document.getElementById('Ma_CB').value = nv.Ma_CB;
+            document.getElementById('Ho_Ten').value = nv.Ho_Ten;
+            document.getElementById('Gioi_Tinh').value = nv.Gioi_Tinh;
+            document.getElementById('Ngay_Sinh').value = formatDateForDisplay(parseInt(nv.Ngay_Sinh));
+            document.getElementById('Ngay_BD_CT').value = formatDateForDisplay(parseInt(nv.Ngay_BD_CT));
+            document.getElementById('Noi_Cong_Tac').value = nv.Noi_Cong_Tac;
+            
+            document.getElementById('Ma_CB').disabled = true;
+            document.getElementById('form-message').textContent = '';
+            document.getElementById('add-edit-form').style.display = 'block';
+        }
+
+        function saveEmployee() {
+            const index = document.getElementById('edit-index').value;
+            const Ma_CB = document.getElementById('Ma_CB').value.trim();
+            const Ho_Ten = document.getElementById('Ho_Ten').value.trim();
+            const Gioi_Tinh = document.getElementById('Gioi_Tinh').value.trim();
+            const Ngay_Sinh_Str = document.getElementById('Ngay_Sinh').value.trim(); 
+            const Ngay_BD_CT_Str = document.getElementById('Ngay_BD_CT').value.trim();
+            const Noi_Cong_Tac = document.getElementById('Noi_Cong_Tac').value.trim();
+            const messageEl = document.getElementById('form-message');
+
+            if (!Ma_CB || !Ho_Ten || !Gioi_Tinh || !Ngay_Sinh_Str || !Ngay_BD_CT_Str || !Noi_Cong_Tac) {
+                messageEl.textContent = 'Vui lòng điền đầy đủ tất cả các trường.';
+                return;
+            }
+
+            // CHUYỂN ĐỔI NGÀY THÁNG SANG SERIAL DATE VÀ KIỂM TRA
+            const serialSinh = getExcelSerialFromDisplayDate(Ngay_Sinh_Str);
+            const serialBDCT = getExcelSerialFromDisplayDate(Ngay_BD_CT_Str);
+
+            if (isNaN(serialSinh) || isNaN(serialBDCT) || serialSinh <= 0 || serialBDCT <= 0) {
+                messageEl.textContent = 'Ngày Sinh và Ngày BĐ CT phải ở định dạng dd/MM/yyyy hợp lệ.';
+                return;
+            }
+
+            // Gán lại giá trị serial date (dạng string) để lưu vào employeeData
+            const Ngay_Sinh = serialSinh.toString(); 
+            const Ngay_BD_CT = serialBDCT.toString();
+
+            const newEmployee = { Ma_CB, Ho_Ten, Gioi_Tinh, Ngay_Sinh, Ngay_BD_CT, Noi_Cong_Tac };
+
+            if (index === '') {
+                if (employeeData.some(nv => nv.Ma_CB === Ma_CB)) {
+                    messageEl.textContent = 'Mã CB này đã tồn tại. Vui lòng dùng mã khác.';
+                    return;
+                }
+                employeeData.push(newEmployee);
+            } else {
+                employeeData[parseInt(index)] = newEmployee;
+            }
+
+            hideForm();
+            renderTable();
+        }
+
+        function deleteEmployee(index) {
+            if (confirm(`Bạn có chắc chắn muốn xóa nhân viên ${employeeData[index].Ho_Ten} (${employeeData[index].Ma_CB})?`)) {
+                employeeData.splice(index, 1);
+                renderTable();
+            }
+        }
+
+        function exportData() {
+            const headers = ['Ma_CB', 'Ho_Ten', 'Gioi_Tinh', 'Ngay_Sinh', 'Ngay_BD_CT', 'Noi_Cong_Tac'];
+            
+            const csvRows = [];
+            csvRows.push(headers.join(','));
+
+            // Sắp xếp dữ liệu trước khi xuất
+            const sortedData = [...employeeData].sort((a, b) => a.Ma_CB.localeCompare(b.Ma_CB));
+
+            for (const nv of sortedData) {
+                const values = headers.map(header => {
+                    let value = nv[header];
+                    if (typeof value === 'string' && value.includes(',')) {
+                        value = `"${value}"`;
+                    }
+                    return value;
+                });
+                csvRows.push(values.join(','));
+            }
+
+            const csvString = csvRows.join('\n');
+            
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', 'Thong_tin_Nguoi_lao_dong_updated.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            alert('Đã xuất file Thong_tin_Nguoi_lao_dong_updated.csv (Ngày tháng ở định dạng Serial Date).');
+        }
+
+        // --- KHỞI TẠO BAN ĐẦU ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAndProcessData();
+            populateMonthSelector();
+            // Mặc định load timesheet cho tháng hiện tại khi chuyển tab.
+
+            // Khởi tạo và chạy đồng hồ
+            updateClock(); // Cập nhật lần đầu
+            setInterval(updateClock, 1000); // Cập nhật mỗi giây
+        });
+    </script>
+</body>
+</html>
